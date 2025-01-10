@@ -3,6 +3,9 @@ import type { Restaurant } from "../schemas/restaurants.schema.js";
 import { initializeRedisClient } from "../utils/client.js";
 import { nanoid } from "nanoid";
 import {
+  cuisineKey,
+  cuisinesKey,
+  restaurantCuisinesKeyById,
   restaurantKeyById,
   reviewDetailsKeyById,
   reviewKeyById,
@@ -24,8 +27,16 @@ export async function createRestaurant(
     const restaurantKey = restaurantKeyById(id);
     const hashData = { id, name: data.name, location: data.location };
 
-    const addResult = await client.hSet(restaurantKey, hashData);
-    console.log(`Added ${addResult} fields`);
+    await Promise.all([
+      ...data.cuisines.map((cuisine) =>
+        Promise.all([
+          client.sAdd(cuisinesKey, cuisine),
+          client.sAdd(cuisineKey(cuisine), id),
+          client.sAdd(restaurantCuisinesKeyById(id), cuisine),
+        ])
+      ),
+      client.hSet(restaurantKey, hashData),
+    ]);
 
     successResponse(res, hashData, "New restaurant added.");
   } catch (error) {
@@ -127,9 +138,10 @@ export async function getRestaurant(
   try {
     const client = await initializeRedisClient();
     const restaurantKey = restaurantKeyById(restaurantId);
-    const [viewCount, restaurant] = await Promise.all([
+    const [viewCount, restaurant, cuisines] = await Promise.all([
       client.hIncrBy(restaurantKey, "viewCount", 1),
       client.hGetAll(restaurantKey),
+      client.sMembers(restaurantCuisinesKeyById(restaurantId)),
     ]);
 
     // Redis returns an empty object if the key doesn't exist
@@ -141,7 +153,7 @@ export async function getRestaurant(
     //   return;
     // }
 
-    successResponse(res, restaurant);
+    successResponse(res, { ...restaurant, cuisines });
   } catch (error) {
     console.error(error);
     next(error);

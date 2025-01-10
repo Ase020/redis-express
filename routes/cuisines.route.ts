@@ -1,9 +1,9 @@
-import express from "express";
+import express, { Router } from "express";
+import { getCuisine, getCuisines } from "../controllers/cuisines.controller.js";
 
-const router = express.Router();
+const router: Router = express.Router();
 
-router.get("/", async (req, res) => {
-  res.send("Cuisines path hello");
-});
+router.get("/", getCuisines);
+router.get("/:cuisine", getCuisine);
 
 export default router;
