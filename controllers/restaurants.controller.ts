@@ -10,9 +10,11 @@ import {
   restaurantsByRatingKey,
   reviewDetailsKeyById,
   reviewKeyById,
+  weatherKeyById,
 } from "../utils/keys.js";
 import { errorResponse, successResponse } from "../utils/responses.js";
 import type { Review } from "../schemas/reviews.schema.js";
+import { getWeatherUrl } from "../utils/getWeatherUrl.js";
 
 export async function getRestaurants(
   req: Request,
@@ -73,6 +75,63 @@ export async function createRestaurant(
     ]);
 
     successResponse(res, hashData, "New restaurant added.");
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+}
+
+export async function getRestaurantWeather(
+  req: Request<{ restaurantId: string }>,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const { restaurantId } = req.params;
+
+  try {
+    const client = await initializeRedisClient();
+    const weatherKey = weatherKeyById(restaurantId);
+    const cachedWeather = await client.get(weatherKey);
+    if (cachedWeather) {
+      console.log("Cache found");
+      successResponse(res, JSON.parse(cachedWeather));
+    }
+
+    const restaurantKey = restaurantKeyById(restaurantId);
+
+    const coords = await client.hGet(restaurantKey, "location");
+    if (!coords) {
+      errorResponse(res, 404, "Coordinates not found!");
+      return;
+    }
+
+    const [lat, long] = coords?.split(",");
+
+    if (!lat || !long) {
+      errorResponse(res, 404, "Invalid coordinates format!");
+      return;
+    }
+    const apiResponse = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?units=imperial&lat=${Number(
+        lat
+      )}&lon=${Number(long)}&appid=${process.env.WEATHER_API_KEY}`
+    );
+    getWeatherUrl(Number(53.2734), Number(-7.77832031));
+    // const apiResponse = await fetch(getWeatherUrl(Number(lat), Number(long)));
+    // const apiResponse = await fetch(
+    //   getWeatherUrl(Number(53.2734), Number(-7.77832031))
+    // );
+
+    if (apiResponse.status === 200) {
+      const weatherData = await apiResponse.json();
+      console.log("Data:", weatherData);
+      await client.set(weatherKey, JSON.stringify(weatherData), {
+        EX: 60 * 60,
+      });
+      successResponse(res, weatherData);
+    }
+
+    errorResponse(res, 500, "Couldn't fetch weather info!");
   } catch (error) {
     console.error(error);
     next(error);
