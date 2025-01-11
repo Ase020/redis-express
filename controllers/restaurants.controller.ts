@@ -1,11 +1,15 @@
 import type { NextFunction, Request, Response } from "express";
-import type { Restaurant } from "../schemas/restaurants.schema.js";
+import type {
+  Restaurant,
+  RestaurantDetails,
+} from "../schemas/restaurants.schema.js";
 import { initializeRedisClient } from "../utils/client.js";
 import { nanoid } from "nanoid";
 import {
   cuisineKey,
   cuisinesKey,
   restaurantCuisinesKeyById,
+  restaurantDetailsKeysById,
   restaurantKeyById,
   restaurantsByRatingKey,
   reviewDetailsKeyById,
@@ -260,6 +264,45 @@ export async function getRestaurant(
     // }
 
     successResponse(res, { ...restaurant, cuisines });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+}
+
+export async function createRestaurantDetails(
+  req: Request<{ restaurantId: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  const { restaurantId } = req.params;
+  const data = req.body as RestaurantDetails;
+
+  try {
+    const client = await initializeRedisClient();
+    const restaurantDetailsKey = restaurantDetailsKeysById(restaurantId);
+    await client.json.set(restaurantDetailsKey, ".", data);
+
+    successResponse(res, {}, "Restaurant details added successfully");
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+}
+
+export async function getRestaurantDetails(
+  req: Request<{ restaurantId: string }>,
+  res: Response,
+  next: NextFunction
+) {
+  const { restaurantId } = req.params;
+
+  try {
+    const client = await initializeRedisClient();
+    const restaurantDetailsKey = restaurantDetailsKeysById(restaurantId);
+    const details = await client.json.get(restaurantDetailsKey);
+
+    successResponse(res, details);
   } catch (error) {
     console.error(error);
     next(error);

@@ -1,11 +1,16 @@
 import express, { Router } from "express";
 import { validate } from "../middlewares/validate.js";
-import { RestaurantSchema } from "../schemas/restaurants.schema.js";
+import {
+  RestaurantDetailsSchema,
+  RestaurantSchema,
+} from "../schemas/restaurants.schema.js";
 import {
   createRestaurant,
+  createRestaurantDetails,
   createRestaurantReview,
   deleteRestaurantReview,
   getRestaurant,
+  getRestaurantDetails,
   getRestaurantReviews,
   getRestaurants,
   getRestaurantWeather,
@@ -20,6 +25,18 @@ router.get(
   "/:restaurantId/weather",
   checkRestaurantExists,
   getRestaurantWeather
+);
+router.post(
+  "/:restaurantId/details",
+  checkRestaurantExists,
+  validate(RestaurantDetailsSchema),
+  createRestaurantDetails
+);
+
+router.get(
+  "/:restaurantId/details",
+  checkRestaurantExists,
+  getRestaurantDetails
 );
 router.post(
   "/:restaurantId/reviews",
