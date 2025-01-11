@@ -10,6 +10,7 @@ import {
   cuisinesKey,
   restaurantCuisinesKeyById,
   restaurantDetailsKeysById,
+  restaurantIndexKey,
   restaurantKeyById,
   restaurantsByRatingKey,
   reviewDetailsKeyById,
@@ -274,7 +275,7 @@ export async function createRestaurantDetails(
   req: Request<{ restaurantId: string }>,
   res: Response,
   next: NextFunction
-) {
+): Promise<void> {
   const { restaurantId } = req.params;
   const data = req.body as RestaurantDetails;
 
@@ -294,7 +295,7 @@ export async function getRestaurantDetails(
   req: Request<{ restaurantId: string }>,
   res: Response,
   next: NextFunction
-) {
+): Promise<void> {
   const { restaurantId } = req.params;
 
   try {
@@ -303,6 +304,38 @@ export async function getRestaurantDetails(
     const details = await client.json.get(restaurantDetailsKey);
 
     successResponse(res, details);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+}
+
+export async function searchRestaurant(
+  req: Request<{}, {}, {}, { q?: string | string[] }>,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const searchQuery = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+
+  if (!searchQuery) {
+    errorResponse(res, 400, "Search query is required");
+    return;
+  }
+
+  try {
+    const client = await initializeRedisClient();
+
+    const escapedQuery = searchQuery.replace(
+      /[<>{}[\]"':;!@#$%^&*()\-+=~]/g,
+      "\\$&"
+    );
+
+    const searchResult = await client.ft.search(
+      restaurantIndexKey,
+      `@name:${escapedQuery}*`
+    );
+
+    successResponse(res, searchResult);
   } catch (error) {
     console.error(error);
     next(error);

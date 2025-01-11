@@ -14,6 +14,7 @@ import {
   getRestaurantReviews,
   getRestaurants,
   getRestaurantWeather,
+  searchRestaurant,
 } from "../controllers/restaurants.controller.js";
 import { checkRestaurantExists } from "../middlewares/checkRestaurantId.js";
 import { ReviewSchema } from "../schemas/reviews.schema.js";
@@ -55,5 +56,6 @@ router.delete(
   deleteRestaurantReview
 );
 router.get("/:restaurantId", checkRestaurantExists, getRestaurant);
+router.get("/search", searchRestaurant);
 
 export default router;
