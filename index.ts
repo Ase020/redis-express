@@ -1,20 +1,41 @@
-import express from "express";
-
-import cuisinesRouter from "./routes/cuisines.route.js";
-import restaurantsRouter from "./routes/restaurants.route.js";
-import { errorHandler } from "./middlewares/errorHandlers.js";
+import { availableParallelism } from "node:os";
+import cluster from "node:cluster";
+import app from "./server.js";
 
 const PORT = process.env.PORT || 3000;
 
-const app = express();
+if (process.env.NODE_ENV === "production" && cluster.isPrimary) {
+  const cpuCount = availableParallelism();
+  console.log(`Primary ${process.pid} is running`);
+  console.log(`Forking for ${cpuCount} CPU cores`);
 
-app.use(express.json());
-app.use("/api/v1/cuisines", cuisinesRouter);
-app.use("/api/v1/restaurants", restaurantsRouter);
+  // Fork workers
+  for (let i = 0; i < cpuCount; i++) {
+    cluster.fork();
+  }
 
-app.use(errorHandler);
-app
-  .listen(PORT, () => console.log(`Application running on port: ${PORT}`))
-  .on("error", (error) => {
-    throw new Error(error.message);
+  cluster.on("exit", (worker, code, signal) => {
+    if (code !== 0 && !worker.exitedAfterDisconnect) {
+      console.log(`Worker ${worker.process.pid} died. Replacing...`);
+      cluster.fork();
+    }
   });
+} else {
+  // Workers share the TCP connection
+  app
+    .listen(PORT, () => {
+      console.log(
+        `Worker ${process.pid} started and listening on port ${PORT}`
+      );
+    })
+    .on("error", (error: Error) => {
+      console.error("Server error:", error);
+      process.exit(1);
+    });
+}
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received");
+  process.exit(0);
+});

@@ -12,6 +12,7 @@
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": true,
         "module": "NodeNext",
+        "moduleResolution": "NodeNext",
         "outDir": "dist",
         "sourceMap": true,
         "lib":["ES2022"]
